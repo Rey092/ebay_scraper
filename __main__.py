@@ -1,8 +1,8 @@
-import scraper
+import UI
 
 
 def main():
-    scraper.scraper("book")
+    UI.activate_ui()
 
 
 if __name__ == "__main__":

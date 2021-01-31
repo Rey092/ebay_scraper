@@ -45,7 +45,7 @@ def scraper(key_word):
 
         print("Page {} is uploaded".format(page))
 
-        soup = BeautifulSoup(driver.page_source, 'html5lib')  # Lets cook the soup.
+        soup = BeautifulSoup(driver.page_source, 'html.parser')  # Lets cook the soup.
         # Extract data according to instructions to 'info' and store it into 'rozetka_items'
         products = soup.select('div.s-item__info')
         breaker = soup.select('.srp-controls__count-heading')[0].text

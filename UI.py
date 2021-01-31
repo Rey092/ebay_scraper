@@ -1,8 +1,12 @@
+import threading
+
 from PyQt5 import QtCore, QtGui, QtWidgets
+
+import scraper
 
 
 class Ui_MainWindow(object):
-    def setupUi(self, MainWindow):
+    def setup_ui(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
         MainWindow.resize(675, 121)
         self.centralwidget = QtWidgets.QWidget(MainWindow)
@@ -41,7 +45,7 @@ class Ui_MainWindow(object):
         self.label_2.raise_()
         self.progressBar.raise_()
         MainWindow.setCentralWidget(self.centralwidget)
-
+        self.pushButton.clicked.connect(self.press_button)
         self.retranslateUi(MainWindow)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
 
@@ -50,15 +54,26 @@ class Ui_MainWindow(object):
         MainWindow.setWindowTitle(_translate("MainWindow", "MainWindow"))
         self.pushButton.setText(_translate("MainWindow", "PushButton"))
         self.label_2.setText(_translate("MainWindow",
-                                        "<html><head/><body><p><span style=\" font-size:10pt; font-weight:600;\">Input Keyword and press &quot;Start&quot;</span></p></body></html>"))
+                                        "<html><head/><body><p><span style=\" font-size:10pt; "
+                                        "font-weight:600;\">Input Keyword and press "
+                                        "&quot;Start&quot;</span></p></body></html>"))
+    def press_button(self):
+        keyword = str(self.lineEdit.text())
+        t = threading.Thread(target=start_scraper, args=keyword, daemon=True)
+        t.start()
 
 
-if __name__ == "__main__":
+def start_scraper(*keyword):
+    key = ''.join(keyword)
+    scraper.scraper(key)
+
+
+def activate_ui():
     import sys
 
     app = QtWidgets.QApplication(sys.argv)
     MainWindow = QtWidgets.QMainWindow()
     ui = Ui_MainWindow()
-    ui.setupUi(MainWindow)
+    ui.setup_ui(MainWindow)
     MainWindow.show()
     sys.exit(app.exec_())
