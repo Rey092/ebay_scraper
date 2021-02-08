@@ -1,56 +1,59 @@
-import csv  # for .csv creation
-import itertools  # for infinite "for loop"
+import csv
 
 import pandas as pd  # excel
-from bs4 import BeautifulSoup  # get information from raw data
+from PyQt5 import QtCore
+from bs4 import BeautifulSoup
 from selenium import webdriver
+from selenium.webdriver import DesiredCapabilities
+
+profile = webdriver.FirefoxProfile()
+# PROXY_HOST = "12.12.12.123"
+# PROXY_PORT = "1234"
+# profile.set_preference("network.proxy.type", 1)
+# profile.set_preference("network.proxy.http", PROXY_HOST)
+# profile.set_preference("network.proxy.http_port", int(PROXY_PORT))
+profile.set_preference("dom.webdriver.enabled", False)
+profile.set_preference('useAutomationExtension', False)
+profile.update_preferences()
+desired = DesiredCapabilities.FIREFOX
+
+options = webdriver.FirefoxOptions()
+options.set_preference("dom.webnotifications.serviceworker.enabled", False)
+options.set_preference("dom.webnotifications.enabled", False)
+options.add_argument('--headless')
 
 
-def scraper(key_word):
-    options = webdriver.ChromeOptions()
-    options.add_argument('--ignore-certificate-errors')
-    options.add_argument('--incognito')
-    # options.add_argument('--headless')
-    options.add_argument("start-maximized")
-    # Exclude the collection of enable-automation switches
-    options.add_experimental_option("excludeSwitches", ["enable-automation"])
-    # Turn-off useAutomationExtension
-    options.add_experimental_option('useAutomationExtension', False)
-
-    # Set driver
-    driver = webdriver.Chrome('chromedriver', options=options)
-    # Change the property value of the navigator for driver to undefined
-    driver.execute_script("Object.defineProperty(navigator, 'driver', {get: () => undefined})")
-    # Rotating the user-agent through execute_cdp_cmd() command as follows:
-    driver.execute_cdp_cmd('Network.setUserAgentOverride', {
-        "userAgent": 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
-                     'Chrome/83.0.4103.53 Safari/537.36'})
-
+def scraper(key, progressbar, push, line):
     rozetka_items = []
-    keyword = key_word
-
+    driver = webdriver.Firefox(options=options, desired_capabilities=desired, firefox_profile=profile)
     driver.get('https://ebay.com')
     xpath_form = "/html/body/header/table/tbody/tr/td[3]/form/table/tbody/tr/td[1]/div[1]/div/input[1]"
-    driver.find_element_by_xpath(xpath_form).send_keys(keyword)
+    driver.find_element_by_xpath(xpath_form).send_keys(key)
     xpath_find = "/html/body/header/table/tbody/tr/td[3]/form/table/tbody/tr/td[3]/input"
     driver.find_element_by_xpath(xpath_find).click()
-    currentURL = driver.current_url
-    print(currentURL)
-    "&_ipg=200&_pgn=2"
+    current_url = driver.current_url
+    breaker = ""
 
-    for page in itertools.count(start=1):
-        if page == 51:
-            break
-        driver.get(f"{currentURL}&_ipg=200&_pgn={page}")
-
+    for page in range(1, 51):
+        driver.get(f"{current_url}&_ipg=200&_pgn={page}")
         print("Page {} is uploaded".format(page))
-
+        QtCore.QMetaObject.invokeMethod(progressbar, "setValue",
+                                        QtCore.Qt.QueuedConnection,
+                                        QtCore.Q_ARG(int, page * 2))
         soup = BeautifulSoup(driver.page_source, 'html.parser')  # Lets cook the soup.
         # Extract data according to instructions to 'info' and store it into 'rozetka_items'
         products = soup.select('div.s-item__info')
-        breaker = soup.select('.srp-controls__count-heading')[0].text
-        if breaker == f"0 results for {keyword}" or not products:
+
+        if str(breaker) == f"0 results for {key}":
             break
+
+        try:
+            breaker = soup.select('.srp-controls__count-heading')[0].text
+            if str(breaker) == f"0 results for {key}":
+                break
+        except IndexError:
+            pass
+
         for elem in products:
             try:
                 title = elem.select('.s-item__title')[0].text
@@ -99,14 +102,22 @@ def scraper(key_word):
                 "Sold": hotness,
             }
             rozetka_items.append(info)
-        page += 1
+    driver.close()
 
     keys = rozetka_items[0].keys()  # get keys from 'rozetka_items'
-    with open('products.csv', 'w', newline='', encoding="UTF-8") as output_file:  # write .csv
+    with open(f'data\\{key}.csv', 'w', newline='', encoding="UTF-8") as output_file:  # write .csv
         dict_writer = csv.DictWriter(output_file, keys)
         dict_writer.writeheader()
         dict_writer.writerows(rozetka_items)
-
-    read_file = pd.read_csv(r'products.csv')  # read csv with 'pandas' and convert it then
-    read_file.to_excel(r'products.xlsx', index=None, header=True)
-    driver.close()
+    read_file = pd.read_csv(f'data\\{key}.csv')  # read csv with 'pandas' and convert it then
+    read_file.to_excel(f'data\\{key}.xlsx', index=None, header=True)
+    QtCore.QMetaObject.invokeMethod(progressbar, "setValue",
+                                    QtCore.Qt.QueuedConnection,
+                                    QtCore.Q_ARG(int, 100))
+    QtCore.QMetaObject.invokeMethod(push, "setEnabled",
+                                    QtCore.Qt.QueuedConnection,
+                                    QtCore.Q_ARG(bool, True))
+    QtCore.QMetaObject.invokeMethod(line, "setEnabled",
+                                    QtCore.Qt.QueuedConnection,
+                                    QtCore.Q_ARG(bool, True))
+    print("\ndone")
